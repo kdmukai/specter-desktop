@@ -1,0 +1,30 @@
+{% extends "signer/base.html" %}
+
+
+
+{% block main %}
+    {% include "includes/hwi.html" %}
+    Hello, Specter Signer!
+
+    <div id="connect_container">
+        <h2>Connect USB wallet</h2>
+        <br/>
+        <button class="btn" id="connect_btn">Begin</button>
+    </div>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+<script>
+
+
+    document.getElementById('connect_btn').addEventListener("click", async function(event) {
+        event.preventDefault();
+        hwiSelectHWIDevice();
+    });
+
+
+</script>
+{% endblock %}

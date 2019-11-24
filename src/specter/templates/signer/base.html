@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="shortcut icon" type="image/png" href="/static/img/icon.png"/>
+    <title>Specter Standalone PSBT Signer</title>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css?{{rand}}">
+</head>
+<body>
+{% include "includes/overlay.html" %}
+<div class="row holder">
+    <main>
+        {% if error %}
+        <div class="notification error">
+            ERROR: {{error}}
+        </div>
+        {% endif %}
+
+        {% block main %}
+        {% if error %}
+        <br><br>Something went wrong :(<br><br>{{error}}
+        {% else %}
+        <br><br>Nothing here
+        {% endif %}
+        {% endblock %}
+    </main>
+</div>
+</script>
+{% block scripts %}
+{% endblock %}
+</body>
+</html>
