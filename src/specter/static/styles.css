@@ -195,6 +195,12 @@ nav .separator{
 .btn:hover, .pin_button:hover {
 	background: #405062;
 }
+.btn-small{
+	padding: 8px 15px 8px 10px;
+	min-width: 80px !important;
+	width: 80px !important;
+	font-size: 0.70em !important;
+}
 .btn svg{
 	margin-right: 5px;
 }

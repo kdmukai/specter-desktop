@@ -339,6 +339,7 @@ class WalletManager:
             "change_index": 0,
             "change_address": None,
             "change_keypool": 0,
+            "pending_psbt": None,
         }
         return dic
 
@@ -542,6 +543,9 @@ class Wallet(dict):
             return self.cli.deriveaddresses(sorted_desc)[0]
         return self.cli.deriveaddresses(self._dict[desc], [index, index+1])[0]
 
+    def get_change_address(self):
+        return self._dict.get("change_address")
+
     def geterror(self):
         if self.cli.r is not None:
             try:
@@ -683,7 +687,21 @@ class Wallet(dict):
                 value = bytes.fromhex(k["fingerprint"])+der_to_bytes(k["derivation"])
                 cc_psbt.unknown[key] = value
         psbt["coldcard"]=cc_psbt.serialize()
+
+        self._dict["pending_psbt"] = psbt
+        self._commit()
         return psbt
+
+    def get_pending_psbt(self):
+        return self._dict.get("pending_psbt", None)
+
+    def update_pending_psbt(self, psbt):
+        self._dict["pending_psbt"] = psbt
+        self._commit()
+
+    def clear_pending_psbt(self):
+        self._dict["pending_psbt"] = None
+        self._commit()
 
 def der_to_bytes(derivation):
     items = derivation.split("/")

@@ -17,6 +17,18 @@
 	.hwi-column-btn {
 		margin: 0.75em;
 	}
+	.sign_form {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+	.qr_code {
+		min-height: 400px;
+		text-align: center;
+	}
+	.cancel {
+		margin-top: 3em;
+	}
 </style>
 <h1>{{wallet.name}}</h1>
 <div class="row">
@@ -26,8 +38,8 @@
 	<a href="/wallets/{{wallet['alias']}}/settings/" class="btn radio right">Settings</a>
 </div>
 <br>
-<form action="./" method="POST" class="full-width">
-	{% if not psbt %}
+{% if not psbt %}
+	<form action="./" method="POST">
 		<br><h1>Sending to:</h1>
 		<div class="card">
 			Receipient address:<br>
@@ -43,16 +55,19 @@
 			<br><br>
 			<button type="submit" name="action" value="createpsbt" class="btn centered">Create unsigned transaction</button>&nbsp; &nbsp; &nbsp; 
 		</div>
-		<br>
-	{% else %}
-		<div class="tx_info">
-			<div>Sending <b>{{amount}}</b> BTC to <b>{{address}}</b><br><br></div>
+	</form>
+	<br>
+{% else %}
+	<div class="tx_info">
+		<div>Sending <b>{{amount}}</b> BTC to <b>{{address}}</b><br><br></div>
 
-			{% if wallet.is_multisig %}
-				<div class="log"><b id="sigscount">0</b> signatures acquired</div>
-			{% endif %}
-		</div>
+		{% if wallet.is_multisig %}
+			<div class="log"><b id="sigscount">0</b> signatures acquired</div>
+		{% endif %}
 
+	</div>
+
+	<form action="./" method="POST" class="sign_form">
 		{# ====================== Possible tx signers' inputs ====================== #}
 		{% if wallet.uses_hwi_device %}
 			<div class="hwi_container flex-center flex-column">
@@ -70,15 +85,9 @@
 		{% endif %}
 
 		{% if wallet.uses_qrcode_device %}
-			<div class="row" style="min-height: 400px;">
-			<!-- 	{% set chunk = 700 %}
-				{%for i in range( (psbt["base64"] | length)//chunk+1)%}
-				<img src="{{qrcode((loop.index0 | string)+''+psbt['base64'][loop.index0*chunk:(loop.index0+1)*chunk])}}" class="qr" width="300px"/>
-				{%endfor%}
-			 -->
-
-				<img src="{{qrcode(psbt['base64'])}}" class="qr broad" width="400px" height="400px"/>
-			 </div>
+			<div class="qr_code">
+				<img src="{{qrcode(psbt['base64'])}}" class="qr broad center" width="400px" height="400px"/>
+			</div>
 			<!-- because coldcard psbt is the most complete (includes xpubs) -->
 			<div class="log"><code><pre>{{psbt['coldcard']}}</pre></code></div>
 		{% endif %}
@@ -116,8 +125,13 @@
 			</div>
 		{% endif %}
 
-	{% endif %}
-</form>
+	</form>
+
+
+	<form action="/wallets/{{wallet['alias']}}/cancel_send/" method="post" class="cancel">
+		<button class="btn">cancel transaction</button>
+	</form>
+{% endif %}
 
 {% endblock %}
 
@@ -161,7 +175,14 @@
 		xmlHttp.open("POST", url, true); // true for asynchronous 
 		// xmlHttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 		xmlHttp.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-		xmlHttp.send(JSON.stringify({"psbt0": psbt0, "psbt1": psbt1}));
+		xmlHttp.send(JSON.stringify(
+			{
+				"psbt0": psbt0, 
+				"psbt1": psbt1, 
+				"wallet": "{{wallet['alias']}}",
+				"auto_broadcast": true
+			}
+		));
 		// xmlHttp.send(null);
 	}
 

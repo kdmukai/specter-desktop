@@ -54,18 +54,27 @@ app.register_blueprint(hwi_views, url_prefix='/hwi')
 
 ################ routes ####################
 
-@app.route('/combine/', methods=['GET', 'POST'])
+@app.route('/combine/', methods=['POST'])
 def combine():
-    if request.method == 'POST': # FIXME: ugly...
-        d = request.json
-        psbt0 = d['psbt0'] # request.args.get('psbt0')
-        psbt1 = d['psbt1'] # request.args.get('psbt1')
-        psbt = specter.combine([psbt0, psbt1])
-        raw = specter.finalize(psbt)
-        if "hex" in raw:
-            specter.broadcast(raw["hex"])
-        return json.dumps(raw)
-    return 'meh'
+    d = request.json
+    specter.check()
+    try:
+        wallet = specter.wallets.get_by_alias(d['wallet'])
+    except Exception as e:
+        print(e)
+        return json.dumps({"error": True})
+    psbt0 = d['psbt0'] # request.args.get('psbt0')
+    psbt1 = d['psbt1'] # request.args.get('psbt1')
+    psbt = specter.combine([psbt0, psbt1])
+    wallet.update_pending_psbt(psbt)
+    raw = specter.finalize(psbt)
+    if d["auto_broadcast"] and "hex" in raw:
+        result = specter.broadcast(raw["hex"])
+        print(result)
+
+        # TODO: Verify success
+        wallet.clear_pending_psbt()
+    return json.dumps(raw)
 
 @app.route('/')
 def index():
@@ -305,9 +314,19 @@ def wallet_send(wallet_alias):
     except Exception as e:
         print(e)
         return render_template("base.html", error="Wallet not found", specter=specter, rand=rand)
-    psbt = None
-    address = ""
-    amount = 0
+    psbt = wallet.get_pending_psbt()
+    if psbt:
+        for v in psbt["tx"]["vout"]:
+            if wallet.get_change_address() in v["scriptPubKey"]["addresses"]:
+                # Ignore the change address vout
+                continue
+
+            # Assume a non-change address is our target addr
+            address = v["scriptPubKey"]["addresses"][0]
+            amount = v["value"]
+    else:
+        address = ""
+        amount = 0
     err = None
     if request.method == "POST":
         action = request.form['action']
@@ -326,6 +345,19 @@ def wallet_send(wallet_alias):
                         if address in v["scriptPubKey"]["addresses"]:
                             amount = v["value"]
     return render_template("wallet_send.html", psbt=psbt, address=address, amount=amount, wallet_alias=wallet_alias, wallet=wallet, specter=specter, rand=rand)
+
+
+@app.route('/wallets/<wallet_alias>/cancel_send/', methods=['POST'])
+def wallet_cancel_send(wallet_alias):
+    specter.check()
+    try:
+        wallet = specter.wallets.get_by_alias(wallet_alias)
+    except Exception as e:
+        print(e)
+        return render_template("base.html", error="Wallet not found", specter=specter, rand=rand)
+    wallet.clear_pending_psbt()
+    return redirect("/wallets/%s/" % wallet["alias"])
+
 
 @app.route('/wallets/<wallet_alias>/settings/')
 def wallet_settings(wallet_alias):
