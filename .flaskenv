@@ -4,6 +4,6 @@ PORT=25441
 #   (The autoreloading in 'development' mode causes problems with the Tor connector)
 CONNECT_TOR=False
 
-#FLASK_ENV=production
-FLASK_ENV=development
+FLASK_ENV=production
+#FLASK_ENV=development
 

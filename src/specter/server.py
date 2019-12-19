@@ -48,8 +48,8 @@ SINGLE_TYPES = {
 
 
 
-from views.hwi import hwi_views
-app.register_blueprint(hwi_views, url_prefix='/hwi')
+from hwi.hwi import hwi_blueprint
+app.register_blueprint(hwi_blueprint, url_prefix='/hwi')
 
 
 ################ routes ####################

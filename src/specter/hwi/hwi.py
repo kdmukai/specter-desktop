@@ -12,7 +12,7 @@ from hwilib import base58
 rand = random.randint(0, 1e32) # to force style refresh
 
 
-hwi_views = Blueprint('hwi', __name__, template_folder='templates')
+hwi_blueprint = Blueprint('hwi', __name__, template_folder='templates')
 
 
 """
@@ -68,7 +68,7 @@ def _enumerate():
         return None
 
 
-@hwi_views.route('/extract_xpubs/', methods=['POST'])
+@hwi_blueprint.route('/extract_xpubs/', methods=['POST'])
 def hwi_extract_xpubs():
     specter = get_spector_instance()
 
@@ -151,7 +151,7 @@ def hwi_extract_xpubs():
     return jsonify(success=True, device_alias=device["alias"])
 
 
-@hwi_views.route('/new_device/', methods=['GET'])
+@hwi_blueprint.route('/new_device/', methods=['GET'])
 def hwi_new_device_xpubs():
     err = None
     specter = get_spector_instance()
@@ -165,7 +165,7 @@ def hwi_new_device_xpubs():
     )
 
 
-@hwi_views.route('/enumerate/', methods=['GET'])
+@hwi_blueprint.route('/enumerate/', methods=['GET'])
 def hwi_enumerate():
     try:
         wallets = _enumerate()
@@ -177,7 +177,7 @@ def hwi_enumerate():
     return jsonify(wallets)
 
 
-@hwi_views.route('/detect/', methods=['POST'])
+@hwi_blueprint.route('/detect/', methods=['POST'])
 def detect():
     type = request.form.get("type")
     try:
@@ -199,7 +199,7 @@ def detect():
     return jsonify(success=False)
 
 
-@hwi_views.route('/prompt_pin/', methods=['POST'])
+@hwi_blueprint.route('/prompt_pin/', methods=['POST'])
 def hwi_prompt_pin():
     print(request.form)
     type = request.form.get("type")
@@ -223,7 +223,7 @@ def hwi_prompt_pin():
         return jsonify(success=False, error=e)
 
 
-@hwi_views.route('/send_pin/', methods=['POST'])
+@hwi_blueprint.route('/send_pin/', methods=['POST'])
 def hwi_send_pin():
     type = request.form.get("type")
     path = request.form.get("path")
@@ -238,7 +238,7 @@ def hwi_send_pin():
         return jsonify(success=False, error=e)
 
 
-@hwi_views.route('/sign_tx/', methods=['POST'])
+@hwi_blueprint.route('/sign_tx/', methods=['POST'])
 def hwi_sign_tx():
     type = request.form.get("type")
     path = request.form.get("path")

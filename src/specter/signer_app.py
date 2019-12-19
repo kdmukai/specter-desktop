@@ -2,7 +2,8 @@ import os
 import sys
 
 from flask import Flask, Blueprint, render_template, request, redirect, jsonify
-from flaskwebgui import FlaskUI #get the FlaskUI class
+from flaskwebgui import FlaskUI
+
 
 from pathlib import Path
 env_path = Path('.') / '.flaskenv'
@@ -10,9 +11,7 @@ from dotenv import load_dotenv
 load_dotenv(env_path)
 
 
-app = Flask(__name__, template_folder="templates", static_folder="specter/static")
-
-# Feed it the flask app instance 
+app = Flask(__name__, template_folder="templates", static_folder="static")
 ui = FlaskUI(app)
 
 # print("====================")
@@ -23,16 +22,17 @@ ui = FlaskUI(app)
 
 
 # Import the hwi views from specter
-from specter.views.hwi import hwi_views
-app.register_blueprint(hwi_views, url_prefix='/hwi')
+from hwi.hwi import hwi_blueprint
+app.register_blueprint(hwi_blueprint, url_prefix='/hwi')
 
 
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("signer/index.html")
 
 
-# call the 'run' method
-ui.run()
+if __name__ == '__main__':
+    # app.run(debug=True)
+    ui.run()
 
