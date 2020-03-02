@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="shortcut icon" type="image/png" href="/static/img/icon.png"/>
+	<title>Specter Desktop</title>
+	<link rel="stylesheet" type="text/css" href="/static/styles.css?{{rand}}">
+</head>
+<body>
+{% include "includes/overlay.html" %}
+<div class="row holder">
+	{% block sidebar %}
+	{% include "includes/sidebar.html" %}
+	{% endblock %}
+	<main>
+		{% with messages = get_flashed_messages() %}
+		{% if messages %}
+			<div class="notification error">
+				<ul>
+				{% for message in messages %}
+				<li>{{ message }}</li>
+				{% endfor %}
+				</ul>
+			</div>
+		{% endif %}
+		{% endwith %}
+		{% if error %}
+		<div class="notification error">
+			ERROR: {{error}}
+		</div>
+		{% endif %}
+		{% block main %}
+		{% if error %}
+		<br><br>Something went wrong :(<br><br>{{error}}
+		{% else %}
+		<br><br>Nothing here
+		{% endif %}
+		{% endblock %}
+
+	</main>
+
+</div>
+<div class="loader" id="loader">
+	<img src="/static/img/loader.gif"/>
+	<h1>It may take a while...</h1>
+</div>
+<script type="text/javascript">
+function showLoader(){
+	console.log("Loading");
+	window.setTimeout(()=>{
+		document.getElementById("loader").style.display = "flex";
+	}, 1000);
+}
+function hideLoader(){
+	document.getElementById("loader").style.display = "none";
+}
+// document.querySelectorAll("button").forEach((e)=>{
+// 	e.addEventListener("click", showLoader);
+// });
+</script>
+<script src="/static/vue.min.js"></script>
+{% block scripts %}
+{% endblock %}
+</body>
+</html>

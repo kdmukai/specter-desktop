@@ -1,8 +1,11 @@
 __pycache__
+.pytest_cache
 *.pyc
-
 .env
 .tor_service_key
 build
 dist
 *.egg-info
+.vscode
+cert.pem
+key.pem

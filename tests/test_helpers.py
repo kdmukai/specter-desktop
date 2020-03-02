@@ -1,5 +1,5 @@
 def test_load_jsons():
-    from specter import helpers
+    import cryptoadvance.specter.helpers as helpers
     mydict = helpers.load_jsons("./tests/helpers_testdata")
     assert mydict["some_jsonfile"]["blub"] == "bla"
     assert mydict["some_other_jsonfile"]["bla"] == "blub"
@@ -14,9 +14,15 @@ def test_load_jsons():
     assert mydict["ID123"]['alias'] == "some_jsonfile"
     # We also get the fullpath of that file:
     assert mydict["ID123"]['fullpath'] == "./tests/helpers_testdata/some_jsonfile.json"
+    # Quite handy if you want to get rid of it which is as easy as:
+    # os.remove(mydict["ID123"]['fullpath'])
 
 def test_which():
-    from specter import helpers
-    assert helpers.which("some_non_existing_binary") == None
+    import cryptoadvance.specter.helpers as helpers
+    try:
+        helpers.which("some_non_existing_binary")
+        assert False, "Whould raise an Exception"
+    except:
+        pass
     assert helpers.which("date") == "/bin/date" or helpers.which("date") == "/usr/bin/date" # travis-CI has it on /bin/date
     

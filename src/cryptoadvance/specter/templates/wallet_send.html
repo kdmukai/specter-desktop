@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% block main %}
+
+{% include "includes/hwi.html" %}
+
+<style>
+	.tx_info {
+		padding: 1em;
+		border: 1px solid #506072;
+		border-radius: 4px;
+		text-align: center;
+		margin-bottom: 2em;
+	}
+	.fee_container {
+		height: 11em;
+	}
+	.fee_rate {
+		width: 6em;
+		min-width: 6em;
+	}
+	.hwi_container{
+		margin-bottom: 2em;
+	}
+	.hwi-column-btn {
+		margin: 0.75em;
+	}
+
+</style>
+<h1>{{wallet.name}}</h1>
+<div class="row padded">
+	<a href="/wallets/{{wallet['alias']}}/tx/" class="btn radio left">Transactions</a>
+	<a href="/wallets/{{wallet['alias']}}/receive/" class="btn radio">Receive</a>
+	<a href="/wallets/{{wallet['alias']}}/send/" class="btn radio checked">Send</a>
+	<a href="/wallets/{{wallet['alias']}}/settings/" class="btn radio right">Settings</a>
+</div>
+<br>
+<form action="./" method="POST" class="full-width">
+	{% if not psbt %}
+		<h1 class="padded">Sending to:</h1>
+		<div class="card">
+			Recipient address:<br>
+			<div class="row">
+				<input type="text" id="address" name="address" value="{{address}}"> &nbsp;
+				<a class="btn" id="scanme"><img src="/static/img/qr_tiny.svg"/> Scan</a>
+			</div>
+			<br><br>
+			Amount:<br>
+			<input type="number" name="amount" value="{{amount}}" id="amount" max="{{wallet.fullbalance}}" min=0 step="1e-8">
+			<div class="note">Available: {{"%.8f" % wallet.fullbalance}}</div>
+			<div><label><input type="checkbox" class="inline" name="subtract" value="1"> Subtract from amount</label></div>
+			<br><br>
+
+			<div class="fee_container">
+			<div>Fees: <label><input type="radio" class="inline" style="margin: 0 10px 0 20px;" id="fee_option_dynamic"  name="fee_options" value="dynamic" onclick="showFeeOption(this)">dynamic</label>
+			<label><input type="radio" class="inline" style="margin: 0 10px 0 20px" name="fee_options" value="manual" onclick="showFeeOption(this);">manual</label></div>
+			<br><br>
+			<input type="hidden" id="fee_unit" name="fee_unit" value="">
+			<div id = "fee_manual" style="display:none">
+			Fee rate:<br>
+			<input type="number" class="fee_rate" name="fee_rate" id="fee_rate" max="100" min=0 step="0.25"> sat/B
+			<div class="note">leave blank to set automatically</div>
+			<br><br>
+			</div>
+			<div id ="fee_dynamic" style="display:block">
+			<div id="blocks"></div>
+			<input type="range" style="width: 12em" min="1" max="25" value="6" step="1" id="slider_confTime" oninput="loadDynamicFees(this.value)">
+			<input type="hidden" id="fee_rate_dynamic" name="fee_rate_dynamic" value="0">
+			<div> Fee rate: <span id="fee_rate_dynamic_text"></span></div>
+			<br><br>
+			</div></div>
+
+			<button type="submit" name="action" value="createpsbt" class="btn centered">Create unsigned transaction</button>&nbsp; &nbsp; &nbsp; 
+		</div>
+	{% else %}
+		<div class="tx_info">
+			<div>Sending <b>{{amount}}</b> BTC to <b>{{address}}</b><br><br></div>
+
+			{% if wallet.is_multisig %}
+				<div class="log"><b id="sigscount">0</b> signatures acquired</div>
+			{% endif %}
+		</div>
+
+		{# ====================== Possible tx signers' inputs ====================== #}
+		{% if wallet.uses_hwi_device %}
+			<div class="hwi_container flex-center flex-column">
+				Sign transaction with your:<br/>
+				{% if not wallet.is_multisig %}
+					<button class="btn hwi-column-btn" id="hwi_sign_btn">{{ wallet.device }}</button>
+				{% else %}
+					{% for device in wallet.devices %}
+						{% if device.type in ['coldcard', 'keepkey', 'ledger', 'trezor', 'specter'] %}
+							<button class="btn hwi-column-btn" id="hwi_sign_btn_{{ loop.index }}">{{ device.name }}</button>
+						{% endif %}
+					{% endfor %}
+				{% endif %}
+			</div>
+		{% endif %}
+
+		{% if wallet.uses_qrcode_device %}
+			<div class="row padded">
+				<label>
+					<input type="radio" name="psbt_type" value="compressed_psbt" class="hidden" checked>
+					<div class="btn radio left">Compressed PSBT</div>
+				</label>
+				<label>
+					<input type="radio" name="psbt_type" value="full_psbt" class="hidden">
+					<div class="btn radio right">Full PSBT</div>
+				</label>
+			</div>
+
+			<div class="row" style="min-height: 400px;">
+			<!--    {% set chunk = 700 %}
+				{%for i in range( (psbt["base64"] | length)//chunk+1)%}
+				<img src="{{qrcode((loop.index0 | string)+''+psbt['base64'][loop.index0*chunk:(loop.index0+1)*chunk])}}" class="qr" width="300px"/>
+				{%endfor%}
+			 -->
+
+				<img id="compressed_psbt" src="{{qrcode(psbt['specter'])}}" class="qr broad" width="400px" height="400px"/>
+				<img id="full_psbt" src="{{qrcode(psbt['base64'])}}" class="qr broad" width="400px" height="400px" style="display: none"/>
+			 </div>
+			 <script>
+			 	document.addEventListener("DOMContentLoaded", function(){
+				 	document.forms[0].elements.psbt_type.forEach((o)=>{
+				 		o.addEventListener('change', e=>{
+				 			["compressed_psbt","full_psbt"].forEach(id=>{
+					 			let el = document.getElementById(id);
+					 			if(id==document.forms[0].elements.psbt_type.value){
+					 				el.style.display = "flex";
+					 			}else{
+					 				el.style.display = "none";
+					 			}
+				 			});
+				 		})
+				 	});
+			 	});
+			 </script>
+			<!-- because coldcard psbt is the most complete (includes xpubs) -->
+			<div class="log"><code><pre>{{psbt['coldcard']}}</pre></code></div>
+		{% endif %}
+
+		{% if wallet.uses_sdcard_device %}
+			<br><a class="btn centered" download='to{{address}}{{amount}}.psbt' href="data:application/octet-stream;base64,{{psbt['coldcard']}}">Download transaction</a>
+			<br>
+		{% endif %}
+
+
+		{# ===================== Possible tx signers' outputs ===================== #}
+		{% if wallet.uses_hwi_device %}
+			<div id="hwi_sign_container" class="flex-center flex-column hidden">
+				<h2>Sign Transaction</h2>
+				<div>
+					Please confirm transaction on your <span id="hwi_device_name">device</span>
+				</div>
+				<div class="flex-center">
+					<img src="/static/img/loader_boxes.svg"/>
+				</div>
+			</div>
+		{% endif %}
+
+		{% if wallet.uses_qrcode_device %}
+			<div class="output_option">
+				<a class="btn centered" id="scanme">Scan signed transaction</a>
+			</div>
+		{% endif %}
+			<div class="output_option" style="margin-top:20px">
+				<a href="#" class="btn centered" id="pastetx">Paste signed transaction</a>
+			</div>
+
+
+		{% if wallet.uses_sdcard_device %}
+			<div class="row">
+				<input type="file" id="file" class="inputfile"/>
+				<label for="file" class="btn centered">Upload signed transaction</label>
+			</div>
+		{% endif %}
+
+	{% endif %}
+</form>
+
+{% endblock %}
+
+
+{% block scripts %}
+<div class="popup" id="popup">
+	<video muted playsinline id="qr-video" class="video"></video>
+</div>
+<script>
+function replace(hide, show) {
+	document.getElementById(hide).style.display="none";
+	document.getElementById(show).style.display="block";
+}
+
+function capitalize(str){
+	return str.charAt(0).toUpperCase()+str.substring(1);
+}
+
+function showFeeOption(myRadio) {
+	if (myRadio.value == "dynamic") {
+		replace("fee_manual", "fee_dynamic")
+		document.getElementById("fee_unit").value = "BTC_KB"
+	}
+	else {
+		replace("fee_dynamic", "fee_manual")
+		document.getElementById("fee_unit").value = "SAT_B"
+	}
+}
+
+function loadDynamicFees() {
+	var xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+			let feesJson = JSON.parse(this.responseText);
+			let blocks = "Dynamic fees are currently not available."
+			if (feesJson.hasOwnProperty('feerate')) {
+				let fee = feesJson.feerate
+				blocks = feesJson.blocks
+				document.getElementById("fee_rate_dynamic_text").innerHTML = fee.toString().concat(" BTC/kB")
+				document.getElementById("fee_rate_dynamic").value = fee
+			}
+			else
+			{
+				document.getElementById("fee_rate_dynamic_text").innerHTML = "will be set by Bitcoin Core automatically"
+				document.getElementById("fee_rate_dynamic").value = 0
+			}
+			document.getElementById("blocks").innerHTML = "Confirmation time: ".concat(blocks, " blocks")
+		}
+	}
+	var request = "/get_fee/".concat(document.getElementById("slider_confTime").value)
+	xhttp.open("GET", request, true);
+	xhttp.send();
+	}
+
+	window.onload = loadDynamicFees;
+	document.getElementById("fee_option_dynamic").checked = true
+	document.getElementById("fee_unit").value = "BTC_KB"
+	document.getElementById("slider_confTime").value = 6
+</script>
+<script type="module">
+
+{% if psbt %}
+	let psbt0 = "{{psbt['base64']}}";
+	let sigscount = 0;
+
+	function combine(psbt1){
+		let url="/combine/";
+		// console.log(url);
+		var xmlHttp = new XMLHttpRequest();
+		xmlHttp.onreadystatechange = function() { 
+			if(xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+				console.log(psbt0);
+				console.log(psbt1);
+				let o = JSON.parse(this.responseText);
+				console.log(o);
+				if(o.complete){
+					window.location.replace("../tx/");
+				}else{
+					psbt0 = o["psbt"];
+					sigscount++;
+					document.getElementById("sigscount").innerHTML = sigscount;
+				}
+				// console.log(this.responseText);
+			}else{
+				// document.getElementById("lbl").innerHTML = "Connection failed... Trying again...";
+			}
+		}
+		xmlHttp.onerror = function(e){
+			console.log(xmlHttp);
+			// err = xmlHttp;
+		}
+		xmlHttp.open("POST", url, true); // true for asynchronous 
+		// xmlHttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		xmlHttp.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+		xmlHttp.send(JSON.stringify({"psbt0": psbt0, "psbt1": psbt1}));
+		// xmlHttp.send(null);
+	}
+	document.addEventListener("DOMContentLoaded", function(){
+		let el = document.getElementById("pastetx");
+		el.addEventListener("click", function(){
+			let input = prompt("Paste signed transaction here");
+			if(input){
+				combine(input);
+			}
+		});
+	});
+
+	{# ================== Signers various device support ================== #}
+	{% if wallet.uses_hwi_device %}
+		document.addEventListener("DOMContentLoaded", function(){
+			initPageOverlay("hwi_sign_container");
+
+			{% if not wallet.is_multisig %}
+				document.getElementById("hwi_sign_btn").addEventListener("click", async function(e) {
+					e.preventDefault();
+					beginDetectWallet("{{ wallet.device_type }}");
+				});
+			{% else %}
+				{% for device in wallet.devices %}
+					{% if device.type in ['coldcard', 'keepkey', 'ledger', 'trezor', 'specter'] %}
+						document.getElementById("hwi_sign_btn_{{ loop.index }}").addEventListener("click", async function(e) {
+							e.preventDefault();
+							beginDetectWallet("{{ device.type }}");
+						});
+					{% endif %}
+				{% endfor %}
+			{% endif %}
+
+			document.getElementById("hwi_include__unlocked__submit").addEventListener("click", async function(e) {
+				e.preventDefault();
+				document.getElementById("hwi_device_name").textContent = capitalize(hwiCurrentWallet.type);
+				showPageOverlay("hwi_sign_container");
+
+				const psbt = "{{ psbt['base64'] }}";
+				var jsonResponse = await hwiSendPsbt(psbt);
+				if (jsonResponse.hasOwnProperty('error')) {
+					alert(jsonResponse.error);
+				} else if (jsonResponse.psbt !== "undefined") {
+					combine(jsonResponse.psbt);
+				}
+
+				hidePageOverlay("hwi_sign_container");
+			});
+		});
+	{% endif %}
+
+{% endif %}
+
+{% if not psbt or wallet.uses_qrcode_device %}
+		import QrScanner from "/static/qr/qr-scanner.min.js";
+		QrScanner.WORKER_PATH = '/static/qr/qr-scanner-worker.min.js';
+
+		const video = document.getElementById('qr-video');
+
+		const scanner = new QrScanner(video, result => {
+			scanner.stop();
+			document.getElementById("popup").style.display = 'none';
+			{% if not psbt %}
+				let addr = result;
+				if(addr.indexOf("bitcoin:") >= 0){
+					addr = addr.substr(addr.indexOf("bitcoin:")+8);
+				}
+				let arr = addr.split("?");
+				addr = arr[0]
+				document.getElementById("address").value = addr;
+				if(arr.length > 1){
+					arr = arr[1].split("&");
+					arr.forEach((e)=>{
+						if(e.startsWith("amount=")){
+							document.getElementById("amount").value = parseFloat(e.substr(7));
+						}
+					});
+				}
+			{% else %}
+
+				combine(result);
+
+			{% endif %}
+		});
+		document.getElementById("scanme").addEventListener("click", function(){
+			try{
+				scanner.start();
+				document.getElementById("popup").style.display = 'flex';
+			}catch(e){
+				alert("Can't start the QR scanner!\n\n" + e);
+			}
+		});
+		document.getElementById("popup").addEventListener("click", function(){
+			document.getElementById("popup").style.display = 'none';
+			scanner.stop();
+		});
+{% endif %}
+
+{% if psbt and wallet.uses_sdcard_device %}
+		var el = document.getElementById("file");
+
+		el.addEventListener("change", (e) => {
+			let files = el.files;
+			console.log(files);
+			for(let i=0; i<files.length; i++){
+				console.log(files[i].name);
+				let reader = new FileReader();
+				reader.onload = function(e) {
+					let str = btoa(reader.result);
+					combine(str);
+				}
+				reader.readAsBinaryString(files[i]);
+			}
+		});
+{% endif %}
+
+
+</script>
+{% endblock %}
